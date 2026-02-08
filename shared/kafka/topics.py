@@ -31,7 +31,6 @@ class EventType:
     # User events
     USER_REGISTERED = "user.registered"
     USER_LOGIN = "user.login"
-    USER_EMAIL_VERIFIED = "user.email_verified"
     USER_ACCOUNT_LOCKED = "user.account_locked"
     USER_PASSWORD_RESET_REQUESTED = "user.password_reset_requested"
     USER_PASSWORD_RESET = "user.password_reset"
@@ -69,9 +68,7 @@ class EventType:
     COMMUNITY_MEMBER_JOINED = "community.member_joined"
     COMMUNITY_MEMBER_LEFT = "community.member_left"
     COMMUNITY_SUSPENDED = "community.suspended"
-    COMMUNITY_VERIFIED = "community.verified"
 
     # Supplier events
     SUPPLIER_REGISTERED = "supplier.registered"
     SUPPLIER_LOGIN = "supplier.login"
-    SUPPLIER_DOCUMENTS_SUBMITTED = "supplier.documents_submitted"

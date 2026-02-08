@@ -8,9 +8,6 @@ from datetime import datetime
 from beanie import PydanticObjectId
 
 from shared.models.community import *
-from shared.models.community_moderation_log import (
-    CommunityModerationLog, ModerationAction, log_moderation_action
-)
 from shared.models.user import User
 from src.kafka.producer import get_kafka_producer
 from shared.kafka.topics import Topic
@@ -105,7 +102,6 @@ class CommunityService:
             user_id=user.id,
             display_name=user.profile.display_name or user.contact_info.primary_email.split("@")[0],
             avatar=user.profile.avatar or "https://example.com/default-avatar.png",
-            is_verified=user.contact_info.email_verified,
             business_email=user.contact_info.primary_email
         )
 
@@ -249,7 +245,6 @@ class CommunityService:
         country: Optional[str] = None,
         city: Optional[str] = None,
         is_featured: Optional[bool] = None,
-        is_verified: Optional[bool] = None,
         cursor: Optional[str] = None,
         limit: int = 20
     ) -> Tuple[List[Community], bool]:
@@ -280,9 +275,6 @@ class CommunityService:
         if is_featured is True:
             query["is_featured"] = True
             query["featured_until"] = {"$gt": utc_now()}
-
-        if is_verified is True:
-            query["is_verified"] = True
 
         # Cursor pagination
         if cursor:
@@ -705,16 +697,6 @@ class CommunityService:
             },
         )
 
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.SUSPEND,
-            actor_id=PydanticObjectId(admin_id),
-            reason=reason,
-            previous_status=previous_status,
-            new_status=community.status.value
-        )
-
         return community
 
     async def unsuspend_community(
@@ -741,77 +723,6 @@ class CommunityService:
         community.version += 1
         await community.save()
 
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.UNSUSPEND,
-            actor_id=PydanticObjectId(admin_id),
-            reason=reason,
-            previous_status=previous_status,
-            new_status=community.status.value
-        )
-
-        return community
-
-    async def verify_community(
-        self,
-        community_id: str,
-        admin_id: str
-    ) -> Community:
-        """Verify a community (admin only)"""
-        community = await self._get_community(community_id)
-
-        if community.is_verified:
-            raise ValueError("Community is already verified")
-
-        await community.verify_community()
-
-        # Emit community.verified event
-        self._kafka.emit(
-            topic=Topic.COMMUNITY,
-            action="verified",
-            entity_id=oid_to_str(community.id),
-            data={
-                "community_name": community.name,
-                "admin_id": admin_id,
-            },
-        )
-
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.VERIFY,
-            actor_id=PydanticObjectId(admin_id),
-            reason="Community verified by admin"
-        )
-
-        return community
-
-    async def unverify_community(
-        self,
-        community_id: str,
-        admin_id: str
-    ) -> Community:
-        """Remove verification (admin only)"""
-        community = await self._get_community(community_id)
-
-        if not community.is_verified:
-            raise ValueError("Community is not verified")
-
-        community.is_verified = False
-        community.verified_at = None
-        community.updated_at = utc_now()
-        community.version += 1
-        await community.save()
-
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.UNVERIFY,
-            actor_id=PydanticObjectId(admin_id),
-            reason="Verification removed by admin"
-        )
-
         return community
 
     async def feature_community(
@@ -828,15 +739,6 @@ class CommunityService:
 
         await community.feature_community(duration_days)
 
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.FEATURE,
-            actor_id=PydanticObjectId(admin_id),
-            reason=f"Featured for {duration_days} days",
-            metadata={"duration_days": duration_days, "featured_until": community.featured_until.isoformat()}
-        )
-
         return community
 
     async def unfeature_community(
@@ -851,14 +753,6 @@ class CommunityService:
             raise ValueError("Community is not featured")
 
         await community.unfeature_community()
-
-        # Log action
-        await log_moderation_action(
-            community_id=community.id,
-            action=ModerationAction.UNFEATURE,
-            actor_id=PydanticObjectId(admin_id),
-            reason="Removed from featured"
-        )
 
         return community
 

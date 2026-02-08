@@ -53,7 +53,6 @@ def post_to_response(post: Post) -> PostResponse:
             display_name=post.author.display_name,
             avatar=post.author.avatar,
             author_type=post.author.author_type.value,
-            is_verified=post.author.is_verified
         ),
         text_content=post.text_content,
         media=[
@@ -126,7 +125,6 @@ def post_to_list_item(post: Post) -> PostListItemResponse:
             display_name=post.author.display_name,
             avatar=post.author.avatar,
             author_type=post.author.author_type.value,
-            is_verified=post.author.is_verified
         ),
         text_preview=post.get_preview_text(200),
         primary_image=post.get_primary_image(),

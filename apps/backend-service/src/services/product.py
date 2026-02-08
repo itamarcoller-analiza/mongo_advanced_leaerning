@@ -33,13 +33,6 @@ class ProductService:
 
     async def _check_supplier_can_create(self, supplier: Supplier) -> None:
         """Check if supplier can create products"""
-        # TODO: Re-enable for production
-        # if supplier.status.value != "active":
-        #     raise ValueError("Supplier account is not active")
-
-        # if supplier.verification.verification_status.value != "verified":
-        #     raise ValueError("Supplier must be verified to create products")
-
         if not supplier.permissions.can_create_products:
             raise ValueError("Insufficient permissions to create products")
 
@@ -462,11 +455,6 @@ class ProductService:
         try:
             # Get product
             product = await self.get_product(product_id, supplier_id)
-
-            # Check supplier is verified
-            supplier = await Supplier.get(PydanticObjectId(supplier_id))
-            if supplier.verification.verification_status.value != "verified":
-                raise ValueError("Supplier must be verified to publish products")
 
             # Check current status
             if product.status != ProductStatus.DRAFT:

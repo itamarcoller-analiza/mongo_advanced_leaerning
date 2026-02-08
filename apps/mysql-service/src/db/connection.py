@@ -62,8 +62,6 @@ class Database:
                 avatar VARCHAR(500),
                 bio TEXT,
                 phone VARCHAR(50),
-                phone_verified BOOLEAN DEFAULT FALSE,
-                email_verified BOOLEAN DEFAULT FALSE,
                 business_name VARCHAR(200),
                 business_type VARCHAR(50),
                 country VARCHAR(2),

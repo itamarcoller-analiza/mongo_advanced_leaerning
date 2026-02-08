@@ -49,11 +49,9 @@ async def register_supplier(request_data: RegisterSupplierRequest):
 
         return RegisterSupplierResponse(
             supplier=SupplierResponse(**result["supplier"]),
-            message=f"Registration successful. Verification email sent to {request_data.primary_email}",
+            message=f"Registration successful.",
             next_steps=[
-                "Verify your email address",
-                "Upload business verification documents",
-                "Wait for admin approval (2-5 business days)"
+                "Your application will be reviewed by our team."
             ]
         )
 
@@ -123,34 +121,6 @@ async def login_supplier(request_data: LoginSupplierRequest, request: Request):
 
 
 @router.post(
-    "/verify-email",
-    response_model=VerifyEmailResponse,
-    status_code=status.HTTP_200_OK,
-    responses={
-        400: {"model": ErrorResponse},
-        500: {"model": ErrorResponse}
-    }
-)
-async def verify_email(request_data: VerifyEmailRequest):
-    """Verify supplier email address"""
-    try:
-        result = await supplier_auth_service.verify_email(request_data.token)
-
-        return VerifyEmailResponse(**result)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred during email verification"
-        )
-
-
-@router.post(
     "/forgot-password",
     response_model=MessageResponse,
     status_code=status.HTTP_200_OK,
@@ -204,44 +174,4 @@ async def reset_password(request_data: ResetPasswordRequest):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An error occurred during password reset"
-        )
-
-
-@router.post(
-    "/submit-documents",
-    response_model=MessageResponse,
-    status_code=status.HTTP_200_OK,
-    responses={
-        400: {"model": ErrorResponse},
-        401: {"model": ErrorResponse},
-        500: {"model": ErrorResponse}
-    }
-)
-async def submit_verification_documents(
-    request_data: SubmitDocumentsRequest,
-    # TODO: Add authentication dependency to get current supplier_id
-    # For now, supplier_id would come from authenticated session
-):
-    """Submit verification documents for supplier approval"""
-    try:
-        # TODO: Extract supplier_id from authenticated session
-        # supplier_id = get_current_supplier_id()
-        supplier_id = "temp_supplier_id"  # Placeholder
-
-        result = await supplier_auth_service.submit_verification_documents(
-            supplier_id=supplier_id,
-            documents=request_data.documents
-        )
-
-        return MessageResponse(**result)
-
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred while submitting documents"
         )

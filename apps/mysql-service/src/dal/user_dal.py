@@ -27,8 +27,6 @@ class UserDAL:
         avatar: Optional[str],
         bio: Optional[str],
         phone: Optional[str],
-        phone_verified: bool,
-        email_verified: bool,
         business_name: Optional[str],
         business_type: Optional[str],
         country: Optional[str],
@@ -41,19 +39,19 @@ class UserDAL:
         sql = """
             INSERT INTO users (
                 user_id, email, display_name, role, status,
-                avatar, bio, phone, phone_verified, email_verified,
+                avatar, bio, phone,
                 business_name, business_type, country, city, state,
                 event_id, event_timestamp
             ) VALUES (
                 %s, %s, %s, %s, %s,
-                %s, %s, %s, %s, %s,
+                %s, %s, %s,
                 %s, %s, %s, %s, %s,
                 %s, %s
             )
         """
         return self._db.execute(sql, (
             user_id, email, display_name, role, status,
-            avatar, bio, phone, phone_verified, email_verified,
+            avatar, bio, phone,
             business_name, business_type, country, city, state,
             event_id, event_timestamp,
         ))
@@ -94,11 +92,6 @@ class UserDAL:
         return self._db.execute(sql, (
             user_id, event_type, event_id, json.dumps(event_data), event_timestamp,
         ))
-
-    def update_email_verified(self, user_id: str, status: str) -> None:
-        """Update user email_verified status."""
-        sql = "UPDATE users SET email_verified = TRUE, status = %s WHERE user_id = %s"
-        self._db.execute(sql, (status, user_id))
 
     def update_status(self, user_id: str, status: str) -> None:
         """Update user status."""

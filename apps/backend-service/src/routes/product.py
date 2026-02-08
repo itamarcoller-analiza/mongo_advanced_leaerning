@@ -74,10 +74,10 @@ async def create_product(request_data: CreateProductRequest, request: Request):
                 status_code=status.HTTP_409_CONFLICT,
                 detail={"code": "PRODUCT_NAME_EXISTS" if "name" in error_msg else "SKU_CONFLICT", "message": error_msg}
             )
-        elif "not verified" in error_msg or "not active" in error_msg:
+        elif "not active" in error_msg:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"code": "SUPPLIER_NOT_VERIFIED", "message": error_msg}
+                detail={"code": "SUPPLIER_NOT_ACTIVE", "message": error_msg}
             )
         elif "Maximum product limit" in error_msg:
             raise HTTPException(
@@ -341,11 +341,6 @@ async def publish_product(product_id: str, request: Request):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail={"code": "PRODUCT_NOT_FOUND", "message": error_msg}
-            )
-        elif "not verified" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail={"code": "SUPPLIER_NOT_VERIFIED", "message": error_msg}
             )
         elif "Cannot publish" in error_msg:
             raise HTTPException(

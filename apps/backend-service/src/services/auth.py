@@ -38,16 +38,6 @@ class AuthService:
         )
 
     # Token utilities
-    def generate_verification_token(self, user_id: str, email: str) -> str:
-        """Generate email verification JWT token (6 hour expiry)"""
-        payload = {
-            "user_id": user_id,
-            "email": email,
-            "type": "email_verification",
-            "exp": utc_now() + timedelta(hours=6)
-        }
-        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
     def generate_reset_token(self, user_id: str, email: str) -> str:
         """Generate password reset JWT token (1 hour expiry)"""
         payload = {
@@ -166,9 +156,6 @@ class AuthService:
                 data=user.model_dump(mode="json"),
             )
 
-            # Generate verification token
-            verification_token = self.generate_verification_token(user_id, email)
-
             return {
                 "user": {
                     "id": user_id,
@@ -176,8 +163,7 @@ class AuthService:
                     "display_name": user.profile.display_name,
                     "role": user.role.value,
                     "status": user.status.value
-                },
-                "verification_token": verification_token
+                }
             }
         except ValueError as e:
             raise ValueError(str(e))
@@ -252,9 +238,6 @@ class AuthService:
                 data=user.model_dump(mode="json"),
             )
 
-            # Generate verification token
-            verification_token = self.generate_verification_token(user_id, email)
-
             return {
                 "user": {
                     "id": user_id,
@@ -266,8 +249,7 @@ class AuthService:
                         "company_name": company_name,
                         "business_type": business_type
                     }
-                },
-                "verification_token": verification_token
+                }
             }
         except ValueError as e:
             raise ValueError(str(e))
@@ -307,9 +289,6 @@ class AuthService:
                     user.security.failed_login_attempts = 0
                     await user.save()
 
-            # Check if email verified (disabled for development)
-            # if not user.contact_info.email_verified:
-            #     raise ValueError("Email not verified. Check your inbox.")
 
             # Check if active (disabled for development)
             # if user.status != UserStatus.ACTIVE:
@@ -377,54 +356,6 @@ class AuthService:
             raise ValueError(str(e))
         except Exception as e:
             raise Exception(f"Failed to login: {str(e)}")
-
-    # Email verification
-    async def verify_email(self, token: str) -> Dict[str, Any]:
-        """
-        Verify user email and activate account
-        Returns: user data dictionary
-        """
-        try:
-            # Verify token
-            payload = self.verify_token(token, "email_verification")
-            user_id = payload.get("user_id")
-
-            # Get user
-            user = await User.get(ObjectId(user_id))
-            if not user:
-                raise ValueError("User not found")
-
-            # Mark email as verified
-            user.contact_info.email_verified = True
-
-            # Auto-activate consumers, leaders need admin approval
-            if user.role == UserRole.CONSUMER:
-                user.status = UserStatus.ACTIVE
-
-            await user.save()
-
-            # Emit user.email_verified event
-            user_id = oid_to_str(user.id)
-            self._kafka.emit(
-                topic=Topic.USER,
-                action="email_verified",
-                entity_id=user_id,
-                data={
-                    "email": user.contact_info.primary_email,
-                    "status": user.status.value,
-                },
-            )
-
-            return {
-                "id": user_id,
-                "email": user.contact_info.primary_email,
-                "email_verified": True,
-                "status": user.status.value
-            }
-        except ValueError as e:
-            raise ValueError(str(e))
-        except Exception as e:
-            raise Exception(f"Failed to verify email: {str(e)}")
 
     # Password reset
     async def request_password_reset(self, email: str) -> Optional[str]:

@@ -247,7 +247,6 @@ class AuthorResponse(BaseModel):
     display_name: str
     avatar: str
     author_type: str
-    is_verified: bool
 
 
 class MediaResponse(BaseModel):

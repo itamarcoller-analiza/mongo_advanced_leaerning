@@ -11,11 +11,9 @@ from datetime import date
 from src.schemas.community import (
     CommunityResponse, CommunityListItemResponse, OwnerResponse, StatsResponse,
     SettingsResponse, PurposeResponse, BrandingResponse, BusinessAddressResponse,
-    RuleResponse, LinksResponse, PaginatedCommunitiesResponse,
-    ModerationLogResponse, PaginatedModerationLogsResponse
+    RuleResponse, LinksResponse, PaginatedCommunitiesResponse
 )
 from shared.models.community import Community
-from shared.models.community_moderation_log import CommunityModerationLog
 
 
 def get_user_id_from_request(request: Request) -> str:
@@ -117,7 +115,6 @@ def community_to_response(community: Community) -> CommunityResponse:
             id=str(community.owner.user_id),
             display_name=community.owner.display_name,
             avatar=community.owner.avatar,
-            is_verified=community.owner.is_verified
         ),
         stats=StatsResponse(
             member_count=community.stats.member_count,
@@ -133,7 +130,6 @@ def community_to_response(community: Community) -> CommunityResponse:
         rules=rules,
         links=links,
         status=community.status.value,
-        is_verified=community.is_verified,
         is_featured=community.is_featured,
         version=community.version,
         created_at=community.created_at.isoformat(),
@@ -153,7 +149,6 @@ def community_to_list_item(community: Community) -> CommunityListItemResponse:
             id=str(community.owner.user_id),
             display_name=community.owner.display_name,
             avatar=community.owner.avatar,
-            is_verified=community.owner.is_verified
         ),
         stats=StatsResponse(
             member_count=community.stats.member_count,
@@ -172,7 +167,6 @@ def community_to_list_item(community: Community) -> CommunityListItemResponse:
             primary_color=community.branding.primary_color,
             secondary_color=community.branding.secondary_color
         ),
-        is_verified=community.is_verified,
         is_featured=community.is_featured,
         created_at=community.created_at.isoformat()
     )
@@ -191,38 +185,6 @@ def communities_to_paginated_response(
 
     return PaginatedCommunitiesResponse(
         communities=[community_to_list_item(c) for c in communities],
-        next_cursor=next_cursor,
-        has_more=has_more
-    )
-
-
-def moderation_log_to_response(log: CommunityModerationLog) -> ModerationLogResponse:
-    """Convert CommunityModerationLog to response"""
-    return ModerationLogResponse(
-        id=str(log.id),
-        community_id=str(log.community_id),
-        action=log.action.value,
-        reason=log.reason,
-        actor_id=str(log.actor_id),
-        previous_status=log.previous_status,
-        new_status=log.new_status,
-        created_at=log.created_at.isoformat()
-    )
-
-
-def moderation_logs_to_paginated_response(
-    logs: List[CommunityModerationLog],
-    limit: int,
-    has_more: bool
-) -> PaginatedModerationLogsResponse:
-    """Convert list of moderation logs to paginated response"""
-    next_cursor = None
-    if has_more and logs:
-        last = logs[-1]
-        next_cursor = encode_cursor(last.created_at.isoformat(), str(last.id))
-
-    return PaginatedModerationLogsResponse(
-        logs=[moderation_log_to_response(l) for l in logs],
         next_cursor=next_cursor,
         has_more=has_more
     )

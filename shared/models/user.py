@@ -50,8 +50,6 @@ class ContactInfo(BaseModel):
     primary_email: Annotated[EmailStr, Field(description="Primary email for login")]
     additional_emails: Annotated[List[EmailStr], Field(default_factory=list, description="Additional contact emails")]
     phone: Annotated[Optional[str], Field(None, description="Phone with country code")]
-    phone_verified: Annotated[bool, Field(default=False, description="Phone verification status")]
-    email_verified: Annotated[bool, Field(default=True, description="Email verification status")]
 
     @field_validator("additional_emails")
     @classmethod

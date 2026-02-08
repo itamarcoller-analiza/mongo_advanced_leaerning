@@ -40,12 +40,9 @@ class PromotionService:
 
     async def _check_supplier_can_create(self, supplier: Supplier) -> None:
         """Check if supplier can create promotions"""
-        # Check supplier is active and verified
+        # Check supplier is active
         if supplier.status.value != "active":
             raise ValueError("Supplier account is not active")
-
-        if supplier.verification.verification_status.value != "verified":
-            raise ValueError("Supplier must be verified to create promotions")
 
     async def _validate_product_ownership(
         self,

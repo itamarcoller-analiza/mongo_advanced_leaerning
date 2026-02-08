@@ -24,12 +24,6 @@ class SupplierStatus(str, Enum):
     DELETED = "deleted"
 
 
-class VerificationStatus(str, Enum):
-    PENDING = "pending"
-    VERIFIED = "verified"
-    REJECTED = "rejected"
-
-
 class CompanyType(str, Enum):
     """Legal entity types"""
     SOLE_PROPRIETORSHIP = "sole_proprietorship"
@@ -156,27 +150,6 @@ class BusinessInfo(BaseModel):
     support_phone: Annotated[Optional[str], Field(None, description="Customer support phone")]
 
 
-class VerificationInfo(BaseModel):
-    """Verification and compliance information"""
-
-    verification_status: Annotated[VerificationStatus, Field(default=VerificationStatus.PENDING, description="Verification status")]
-    verified_at: Annotated[Optional[datetime], Field(None, description="Verification completion timestamp")]
-    verified_by: Annotated[Optional[str], Field(None, description="Admin user ID who verified")]
-
-    # Rejection details
-    rejected_at: Annotated[Optional[datetime], Field(None, description="Rejection timestamp")]
-    rejected_by: Annotated[Optional[str], Field(None, description="Admin user ID who rejected")]
-    rejection_reason: Annotated[Optional[str], Field(None, max_length=1000, description="Reason for rejection")]
-
-    # Documents submitted for verification
-    submitted_documents: Annotated[List[str], Field(default_factory=list, description="URLs of submitted documents")]
-
-    # Compliance
-    terms_accepted: Annotated[bool, Field(default=False, description="Terms and conditions accepted")]
-    terms_accepted_at: Annotated[Optional[datetime], Field(None, description="Terms acceptance timestamp")]
-    privacy_policy_accepted: Annotated[bool, Field(default=False, description="Privacy policy accepted")]
-
-
 class BankingInfo(BaseModel):
     """Banking and payment information (encrypted at rest)"""
 
@@ -261,9 +234,6 @@ class Supplier(Document):
     # Business information
     business_info: Annotated[BusinessInfo, Field(description="Business operational info")]
 
-    # Verification
-    verification: Annotated[VerificationInfo, Field(default_factory=VerificationInfo, description="Verification status")]
-
     # Banking (encrypted)
     banking_info: Annotated[Optional[BankingInfo], Field(None, description="Banking and payout details")]
 
@@ -299,9 +269,6 @@ class Supplier(Document):
             # Unique primary email for login
             [("contact_info.primary_email", 1)],
 
-            # Find suppliers by verification status
-            [("verification.verification_status", 1), ("status", 1)],
-
             # Find suppliers by industry
             [("business_info.industry_category", 1), ("status", 1)],
 
@@ -322,30 +289,15 @@ class Supplier(Document):
             [("company_info.tax_id", 1)],
         ]
 
-    @field_validator("verification")
-    @classmethod
-    def validate_verification(cls, v: VerificationInfo) -> VerificationInfo:
-        """Ensure verification logic consistency"""
-        if v.verification_status == VerificationStatus.VERIFIED and not v.verified_at:
-            v.verified_at = utc_now()
-        if v.verification_status == VerificationStatus.REJECTED and not v.rejected_at:
-            v.rejected_at = utc_now()
-        return v
-
     # Helper methods
     def is_active(self) -> bool:
         """Check if supplier is active"""
         return self.status == SupplierStatus.ACTIVE and self.deleted_at is None
 
-    def is_verified(self) -> bool:
-        """Check if supplier is verified"""
-        return self.verification.verification_status == VerificationStatus.VERIFIED
-
     def can_create_product(self) -> bool:
         """Check if supplier can create another product"""
         return (
             self.is_active()
-            and self.is_verified()
             and self.permissions.can_create_products
             and self.stats.product_count < self.permissions.max_products
         )
@@ -354,7 +306,6 @@ class Supplier(Document):
         """Check if supplier can create another promotion"""
         return (
             self.is_active()
-            and self.is_verified()
             and self.permissions.can_create_promotions
             and self.stats.active_promotion_count < self.permissions.max_active_promotions
         )
@@ -377,28 +328,6 @@ class Supplier(Document):
     def get_display_name(self) -> str:
         """Get supplier display name"""
         return self.company_info.dba_name or self.company_info.legal_name
-
-    async def verify_supplier(self, verified_by: str) -> None:
-        """Approve supplier verification"""
-        if self.is_verified():
-            raise ValueError("Supplier is already verified")
-
-        self.verification.verification_status = VerificationStatus.VERIFIED
-        self.verification.verified_at = utc_now()
-        self.verification.verified_by = verified_by
-        self.updated_at = utc_now()
-        self.version += 1
-        await self.save()
-
-    async def reject_supplier(self, rejected_by: str, reason: str) -> None:
-        """Reject supplier verification"""
-        self.verification.verification_status = VerificationStatus.REJECTED
-        self.verification.rejected_at = utc_now()
-        self.verification.rejected_by = rejected_by
-        self.verification.rejection_reason = reason
-        self.updated_at = utc_now()
-        self.version += 1
-        await self.save()
 
     async def soft_delete(self) -> None:
         """Soft delete supplier account"""
@@ -448,7 +377,6 @@ class Supplier(Document):
             "description": self.business_info.description,
             "industry": self.business_info.industry_category.value,
             "website": self.business_info.website,
-            "is_verified": self.is_verified(),
             "location": {
                 "city": self.company_info.business_address.city,
                 "state": self.company_info.business_address.state,

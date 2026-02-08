@@ -21,8 +21,7 @@ from src.utils.post_utils import (
     change_request_to_response, change_requests_to_paginated_response
 )
 from src.utils.community_utils import (
-    community_to_response, communities_to_paginated_response,
-    moderation_logs_to_paginated_response
+    community_to_response, communities_to_paginated_response
 )
 
 
@@ -675,94 +674,6 @@ async def unsuspend_community(request_data: UnsuspendCommunityRequest, request: 
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail={"error": {"code": "INVALID_STATUS_TRANSITION", "message": error_msg}}
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": {"code": "INVALID_REQUEST", "message": error_msg}}
-            )
-
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "An error occurred"}}
-        )
-
-
-@router.post(
-    "/communities/verify",
-    response_model=CommunityResponse,
-    responses={
-        404: {"description": "Community not found"},
-        409: {"description": "Already verified"}
-    }
-)
-async def verify_community(request_data: VerifyCommunityRequest, request: Request):
-    """Verify a community (admin only)."""
-    try:
-        admin_id, _ = get_admin_id_from_request(request)
-
-        community = await community_service.verify_community(
-            community_id=request_data.community_id,
-            admin_id=admin_id
-        )
-        return community_to_response(community)
-
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "COMMUNITY_NOT_FOUND", "message": error_msg}}
-            )
-        elif "already verified" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "ALREADY_VERIFIED", "message": error_msg}}
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": {"code": "INVALID_REQUEST", "message": error_msg}}
-            )
-
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "An error occurred"}}
-        )
-
-
-@router.post(
-    "/communities/unverify",
-    response_model=CommunityResponse,
-    responses={
-        404: {"description": "Community not found"},
-        409: {"description": "Not verified"}
-    }
-)
-async def unverify_community(request_data: UnverifyCommunityRequest, request: Request):
-    """Remove verification from a community (admin only)."""
-    try:
-        admin_id, _ = get_admin_id_from_request(request)
-
-        community = await community_service.unverify_community(
-            community_id=request_data.community_id,
-            admin_id=admin_id
-        )
-        return community_to_response(community)
-
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "COMMUNITY_NOT_FOUND", "message": error_msg}}
-            )
-        elif "not verified" in error_msg.lower():
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "NOT_VERIFIED", "message": error_msg}}
             )
         else:
             raise HTTPException(

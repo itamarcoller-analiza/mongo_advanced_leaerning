@@ -166,7 +166,6 @@ async def discover_communities(request_data: DiscoverCommunitiesRequest, request
             country=request_data.country,
             city=request_data.city,
             is_featured=request_data.is_featured,
-            is_verified=request_data.is_verified,
             cursor=request_data.cursor,
             limit=request_data.limit
         )

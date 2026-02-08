@@ -56,7 +56,6 @@ class CommunityOwner(BaseModel):
     user_id: Annotated[PydanticObjectId, Field(description="Reference to User document")]
     display_name: Annotated[str, Field(description="Owner display name")]
     avatar: Annotated[str, Field(description="Owner avatar URL")]
-    is_verified: Annotated[bool, Field(default=False, description="Is verified celebrity/influencer")]
     business_email: Annotated[Optional[str], Field(None, description="Business contact email")]
 
 
@@ -195,10 +194,6 @@ class Community(Document):
     is_featured: Annotated[bool, Field(default=False, description="Featured on discovery page")]
     featured_until: Annotated[Optional[datetime], Field(None, description="Featured expiration date")]
 
-    # Verification
-    is_verified: Annotated[bool, Field(default=False, description="Verified community")]
-    verified_at: Annotated[Optional[datetime], Field(None, description="Verification timestamp")]
-
     # Optimistic locking
     version: Annotated[int, Field(default=1, ge=1, description="Version for optimistic locking")]
 
@@ -241,9 +236,6 @@ class Community(Document):
 
             # Soft delete
             [("deleted_at", 1)],
-
-            # Verified communities
-            [("is_verified", 1), ("status", 1)],
         ]
 
     @field_validator("slug")
@@ -396,14 +388,6 @@ class Community(Document):
         self.version += 1
         await self.save()
 
-    async def verify_community(self) -> None:
-        """Verify the community"""
-        self.is_verified = True
-        self.verified_at = utc_now()
-        self.updated_at = utc_now()
-        self.version += 1
-        await self.save()
-
     async def feature_community(self, duration_days: int = 7) -> None:
         """Feature community on discovery page"""
         from datetime import timedelta
@@ -451,8 +435,7 @@ class Community(Document):
             "owner": {
                 "id": str(self.owner.user_id),
                 "display_name": self.owner.display_name,
-                "avatar": self.owner.avatar,
-                "is_verified": self.owner.is_verified
+                "avatar": self.owner.avatar
             },
             "stats": {
                 "member_count": self.stats.member_count,
@@ -465,7 +448,6 @@ class Community(Document):
                 "is_full": self.is_full(),
                 "requires_approval": self.settings.requires_approval
             },
-            "is_verified": self.is_verified,
             "is_featured": self.is_featured,
             "created_at": self.created_at.isoformat()
         }

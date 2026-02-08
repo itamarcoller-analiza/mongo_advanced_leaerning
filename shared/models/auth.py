@@ -1,5 +1,5 @@
 """
-Authentication Token Models - Email verification and password reset tokens
+Authentication Token Models - Password reset tokens
 """
 
 from beanie import Document, PydanticObjectId
@@ -8,58 +8,6 @@ from typing import Annotated, Optional
 from datetime import datetime
 
 from src.utils.datetime_utils import utc_now
-
-
-class EmailVerificationToken(Document):
-    """
-    Email verification token for confirming user email addresses
-
-    Tokens are one-time use and expire after 6 hours.
-    Used during registration and when adding additional emails.
-    """
-
-    # User reference
-    user_id: Annotated[PydanticObjectId, Field(description="Reference to User document")]
-
-    # Token (stored as bcrypt hash)
-    token_hash: Annotated[str, Field(description="Bcrypt hash of verification token")]
-
-    # Email being verified
-    email: Annotated[str, Field(description="Email address being verified")]
-
-    # Expiration (6 hours from creation)
-    expires_at: Annotated[datetime, Field(description="Token expiration timestamp")]
-
-    # Timestamps
-    created_at: Annotated[datetime, Field(default_factory=utc_now, description="Token creation timestamp")]
-
-    class Settings:
-        name = "email_verification_tokens"
-
-        indexes = [
-            # Query by user
-            [("user_id", 1)],
-
-            # TTL index (auto-delete expired tokens)
-            [("expires_at", 1)],
-
-            # Query by email (for resend)
-            [("email", 1), ("expires_at", 1)]
-        ]
-
-    def is_expired(self) -> bool:
-        """Check if token has expired"""
-        return utc_now() >= self.expires_at
-
-    def to_dict(self) -> dict:
-        """Return token data as dictionary"""
-        return {
-            "id": str(self.id),
-            "user_id": str(self.user_id),
-            "email": self.email,
-            "expires_at": self.expires_at.isoformat(),
-            "created_at": self.created_at.isoformat()
-        }
 
 
 class PasswordResetToken(Document):

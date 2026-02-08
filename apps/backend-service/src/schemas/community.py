@@ -117,7 +117,6 @@ class DiscoverCommunitiesRequest(BaseModel):
     country: Optional[str] = Field(None, description="Filter by country")
     city: Optional[str] = Field(None, description="Filter by city")
     is_featured: Optional[bool] = Field(None, description="Only featured communities")
-    is_verified: Optional[bool] = Field(None, description="Only verified communities")
     cursor: Optional[str] = Field(None, description="Pagination cursor")
     limit: int = Field(default=20, ge=1, le=100, description="Results per page")
 
@@ -212,16 +211,6 @@ class UnsuspendCommunityRequest(BaseModel):
     expected_version: int = Field(..., ge=1, description="Expected version")
 
 
-class VerifyCommunityRequest(BaseModel):
-    """Verify community (admin only)"""
-    community_id: str = Field(..., description="Community ID")
-
-
-class UnverifyCommunityRequest(BaseModel):
-    """Remove verification (admin only)"""
-    community_id: str = Field(..., description="Community ID")
-
-
 class FeatureCommunityRequest(BaseModel):
     """Feature community (admin only)"""
     community_id: str = Field(..., description="Community ID")
@@ -242,7 +231,6 @@ class OwnerResponse(BaseModel):
     id: str
     display_name: str
     avatar: str
-    is_verified: bool
 
 
 class StatsResponse(BaseModel):
@@ -315,7 +303,6 @@ class CommunityResponse(BaseModel):
     rules: Optional[List[RuleResponse]] = None
     links: Optional[LinksResponse] = None
     status: str
-    is_verified: bool
     is_featured: bool
     version: int
     created_at: str
@@ -333,7 +320,6 @@ class CommunityListItemResponse(BaseModel):
     stats: StatsResponse
     settings: SettingsResponse
     branding: BrandingResponse
-    is_verified: bool
     is_featured: bool
     created_at: str
 
@@ -377,20 +363,3 @@ class PaginatedMembersResponse(BaseModel):
     total_count: int
 
 
-class ModerationLogResponse(BaseModel):
-    """Moderation log entry"""
-    id: str
-    community_id: str
-    action: str
-    reason: str
-    actor_id: str
-    previous_status: Optional[str] = None
-    new_status: Optional[str] = None
-    created_at: str
-
-
-class PaginatedModerationLogsResponse(BaseModel):
-    """Paginated moderation logs"""
-    logs: List[ModerationLogResponse]
-    next_cursor: Optional[str] = None
-    has_more: bool

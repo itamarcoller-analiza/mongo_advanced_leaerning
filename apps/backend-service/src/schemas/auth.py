@@ -35,11 +35,6 @@ class LoginRequest(BaseModel):
     password: str = Field(..., description="User password")
 
 
-class VerifyEmailRequest(BaseModel):
-    """Email verification request"""
-    token: str = Field(..., description="Email verification token")
-
-
 class ForgotPasswordRequest(BaseModel):
     """Forgot password request"""
     email: EmailStr = Field(..., description="User email address")
@@ -67,20 +62,11 @@ class RegisterResponse(BaseModel):
     """Registration response"""
     user: UserResponse = Field(..., description="User data")
     message: str = Field(..., description="Success message")
-    verification_token: Optional[str] = Field(None, description="Email verification token (for testing)")
 
 
 class LoginResponse(BaseModel):
     """Login response"""
     user: UserResponse = Field(..., description="User data")
-
-
-class VerifyEmailResponse(BaseModel):
-    """Email verification response"""
-    id: str = Field(..., description="User ID")
-    email: str = Field(..., description="User email")
-    email_verified: bool = Field(..., description="Email verification status")
-    status: str = Field(..., description="Account status")
 
 
 class MessageResponse(BaseModel):

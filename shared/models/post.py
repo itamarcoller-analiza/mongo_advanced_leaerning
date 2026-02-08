@@ -61,7 +61,6 @@ class PostAuthor(BaseModel):
     display_name: Annotated[str, Field(description="Author display name")]
     avatar: Annotated[str, Field(description="Author avatar URL")]
     author_type: Annotated[AuthorType, Field(description="User or leader")]
-    is_verified: Annotated[bool, Field(default=False, description="Verified badge")]
 
 
 class MediaAttachment(BaseModel):
@@ -557,8 +556,7 @@ class Post(Document):
                 "id": str(self.author.user_id),
                 "name": self.author.display_name,
                 "avatar": self.author.avatar,
-                "type": self.author.author_type.value,
-                "is_verified": self.author.is_verified
+                "type": self.author.author_type.value
             },
             "content": self.text_content,
             "media": [

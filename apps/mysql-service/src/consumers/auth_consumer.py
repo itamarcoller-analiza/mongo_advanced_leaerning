@@ -39,8 +39,6 @@ class AuthConsumer:
             avatar=profile.get("avatar"),
             bio=profile.get("bio"),
             phone=contact.get("phone"),
-            phone_verified=contact.get("phone_verified", False),
-            email_verified=contact.get("email_verified", False),
             business_name=business.get("business_name"),
             business_type=business.get("business_type"),
             country=address.get("country"),
@@ -64,23 +62,6 @@ class AuthConsumer:
             event_timestamp=self._parse_timestamp(event.get("timestamp")),
         )
         logger.info(f"[USER_LOGIN] Stored: {event['entity_id']}")
-
-    def handle_email_verified(self, event: dict) -> None:
-        """Handle user.email_verified - update user and log event."""
-        data = event.get("data", {})
-
-        self._dal.update_email_verified(
-            user_id=event.get("entity_id"),
-            status=data.get("status"),
-        )
-        self._dal.insert_event(
-            user_id=event.get("entity_id"),
-            event_type=event.get("event_type"),
-            event_id=event.get("event_id"),
-            event_data=data,
-            event_timestamp=self._parse_timestamp(event.get("timestamp")),
-        )
-        logger.info(f"[EMAIL_VERIFIED] Updated: {event['entity_id']}")
 
     def handle_account_locked(self, event: dict) -> None:
         """Handle user.account_locked - update user and log event."""
@@ -127,7 +108,6 @@ class AuthConsumer:
         return {
             EventType.USER_REGISTERED: self.handle_user_registered,
             EventType.USER_LOGIN: self.handle_user_login,
-            EventType.USER_EMAIL_VERIFIED: self.handle_email_verified,
             EventType.USER_ACCOUNT_LOCKED: self.handle_account_locked,
             EventType.USER_PASSWORD_RESET_REQUESTED: self.handle_password_reset_requested,
             EventType.USER_PASSWORD_RESET: self.handle_password_reset,

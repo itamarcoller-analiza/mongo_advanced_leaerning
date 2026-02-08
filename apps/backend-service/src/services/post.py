@@ -118,8 +118,7 @@ class PostService:
             user_id=user.id,
             display_name=user.display_name or user.email.split("@")[0],
             avatar=user.avatar_url or "https://example.com/default-avatar.png",
-            author_type=AuthorType.LEADER if is_leader else AuthorType.USER,
-            is_verified=user.is_verified if hasattr(user, "is_verified") else False
+            author_type=AuthorType.LEADER if is_leader else AuthorType.USER
         )
 
     def _build_media_list(self, media_data: Optional[List[Dict]]) -> List[MediaAttachment]:

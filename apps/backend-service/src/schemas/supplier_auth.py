@@ -47,11 +47,6 @@ class LoginSupplierRequest(BaseModel):
     password: str = Field(..., description="Supplier password")
 
 
-class VerifyEmailRequest(BaseModel):
-    """Email verification request"""
-    token: str = Field(..., description="Email verification token")
-
-
 class ForgotPasswordRequest(BaseModel):
     """Forgot password request"""
     email: EmailStr = Field(..., description="Supplier email address")
@@ -63,22 +58,12 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=10, max_length=128, description="New password")
 
 
-class SubmitDocumentsRequest(BaseModel):
-    """Submit verification documents request"""
-    documents: List[Dict[str, str]] = Field(
-        ...,
-        description="List of documents with document_type and file_url",
-        min_length=3
-    )
-
-
 # Response Schemas
 class SupplierResponse(BaseModel):
     """Supplier data response"""
     id: str = Field(..., description="Supplier ID")
     email: str = Field(..., description="Primary email")
     company_name: str = Field(..., description="Legal company name")
-    verification_status: str = Field(..., description="Verification status")
     status: str = Field(..., description="Account status")
 
 
@@ -96,14 +81,6 @@ class LoginSupplierResponse(BaseModel):
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: int = Field(default=1800, description="Access token expiry in seconds")
     supplier: SupplierResponse = Field(..., description="Supplier data")
-
-
-class VerifyEmailResponse(BaseModel):
-    """Email verification response"""
-    id: str = Field(..., description="Supplier ID")
-    email: str = Field(..., description="Supplier email")
-    email_verified: bool = Field(..., description="Email verification status")
-    verification_status: str = Field(..., description="Account verification status")
 
 
 class MessageResponse(BaseModel):

@@ -38,16 +38,6 @@ class SupplierAuthService:
         )
 
     # Token utilities
-    def generate_verification_token(self, supplier_id: str, email: str) -> str:
-        """Generate email verification JWT token (6 hour expiry)"""
-        payload = {
-            "supplier_id": supplier_id,
-            "email": email,
-            "type": "supplier_email_verification",
-            "exp": utc_now() + timedelta(hours=6)
-        }
-        return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
     def generate_reset_token(self, supplier_id: str, email: str) -> str:
         """Generate password reset JWT token (1 hour expiry)"""
         payload = {
@@ -214,11 +204,6 @@ class SupplierAuthService:
                     industry_category=industry_category,
                     description=description.strip(),
                     website=str(website) if website else None
-                ),
-                verification=VerificationInfo(
-                    terms_accepted=True,
-                    terms_accepted_at=utc_now(),
-                    privacy_policy_accepted=True
                 )
             )
 
@@ -233,18 +218,13 @@ class SupplierAuthService:
                 data=supplier.model_dump(mode="json"),
             )
 
-            # Generate verification token
-            verification_token = self.generate_verification_token(supplier_id, primary_email)
-
             return {
                 "supplier": {
                     "id": supplier_id,
                     "email": supplier.contact_info.primary_email,
                     "company_name": supplier.company_info.legal_name,
-                    "verification_status": supplier.verification.verification_status.value,
                     "status": supplier.status.value
-                },
-                "verification_token": verification_token
+                }
             }
         except ValueError as e:
             raise ValueError(str(e))
@@ -330,7 +310,6 @@ class SupplierAuthService:
                     "id": supplier_id,
                     "email": supplier.contact_info.primary_email,
                     "company_name": supplier.company_info.legal_name,
-                    "verification_status": supplier.verification.verification_status.value,
                     "status": supplier.status.value
                 }
             }
@@ -346,7 +325,6 @@ class SupplierAuthService:
             "email": supplier.contact_info.primary_email,
             "company_name": supplier.company_info.legal_name,
             "type": "supplier_access",
-            "verification_status": supplier.verification.verification_status.value,
             "status": supplier.status.value,
             "iat": int(utc_now().timestamp()),
             "exp": int((utc_now() + timedelta(minutes=30)).timestamp())
@@ -362,40 +340,6 @@ class SupplierAuthService:
             "exp": int((utc_now() + timedelta(days=7)).timestamp())
         }
         return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
-
-    # Email verification
-    async def verify_email(self, token: str) -> Dict[str, Any]:
-        """
-        Verify supplier email
-        Returns: supplier data dictionary
-        """
-        try:
-            # Verify token
-            payload = self.verify_token(token, "supplier_email_verification")
-            supplier_id = payload.get("supplier_id")
-
-            # Get supplier
-            supplier = await Supplier.get(ObjectId(supplier_id))
-            if not supplier:
-                raise ValueError("Supplier not found")
-
-            # Mark email as verified
-            supplier.contact_info.phone_verified = False  # Email verified, but phone not yet
-            # Note: Supplier model doesn't have email_verified field like User
-            # We'll just update the status if needed
-
-            await supplier.save()
-
-            return {
-                "id": str(supplier.id),
-                "email": supplier.contact_info.primary_email,
-                "email_verified": True,
-                "verification_status": supplier.verification.verification_status.value
-            }
-        except ValueError as e:
-            raise ValueError(str(e))
-        except Exception as e:
-            raise Exception(f"Failed to verify email: {str(e)}")
 
     # Password reset
     async def request_password_reset(self, email: str) -> Optional[str]:
@@ -452,58 +396,3 @@ class SupplierAuthService:
             raise ValueError(str(e))
         except Exception as e:
             raise Exception(f"Failed to reset password: {str(e)}")
-
-    # Document submission
-    async def submit_verification_documents(
-        self,
-        supplier_id: str,
-        documents: list
-    ) -> Dict[str, Any]:
-        """
-        Submit verification documents
-        Returns: success message
-        """
-        try:
-            # Get supplier
-            supplier = await Supplier.get(ObjectId(supplier_id))
-            if not supplier:
-                raise ValueError("Supplier not found")
-
-            # Check if already submitted or verified
-            if supplier.verification.verification_status != VerificationStatus.PENDING:
-                raise ValueError("Documents already submitted or supplier already verified")
-
-            # Validate minimum required documents
-            required_types = ["business_license", "tax_document", "identity_verification"]
-            submitted_types = [doc.get("document_type") for doc in documents]
-
-            missing = [t for t in required_types if t not in submitted_types]
-            if missing:
-                raise ValueError(f"Missing required documents: {', '.join(missing)}")
-
-            # Update supplier
-            supplier.verification.submitted_documents = documents
-            supplier.verification.verification_status = VerificationStatus.UNDER_REVIEW
-            supplier.updated_at = utc_now()
-
-            await supplier.save()
-
-            # Emit supplier.documents_submitted event
-            self._kafka.emit(
-                topic=Topic.SUPPLIER,
-                action="documents_submitted",
-                entity_id=supplier_id,
-                data={
-                    "company_name": supplier.company_info.legal_name,
-                    "document_count": len(documents),
-                    "verification_status": supplier.verification.verification_status.value,
-                },
-            )
-
-            return {
-                "message": "Verification documents submitted successfully. Your application is under review."
-            }
-        except ValueError as e:
-            raise ValueError(str(e))
-        except Exception as e:
-            raise Exception(f"Failed to submit documents: {str(e)}")
