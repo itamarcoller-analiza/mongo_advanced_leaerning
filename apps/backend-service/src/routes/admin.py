@@ -13,8 +13,7 @@ from src.services.post import PostService
 from src.services.community import CommunityService
 from src.utils.promotion_utils import (
     get_admin_id_from_request,
-    promotion_to_response,
-    promotion_to_pending_item
+    promotion_to_response
 )
 from src.utils.post_utils import (
     post_to_response, posts_to_paginated_response,
@@ -35,39 +34,6 @@ community_service = CommunityService()
 # Promotion Admin Endpoints
 # ============================================================================
 
-@router.get(
-    "/promos/pending",
-    response_model=PendingApprovalListResponse,
-    responses={400: {"model": ErrorResponse}}
-)
-async def list_pending_approvals(
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
-    visibility: Optional[str] = Query(None, description="Filter by visibility type"),
-    community_id: Optional[str] = Query(None, description="Filter by community ID")
-):
-    """List promos pending approval"""
-    try:
-
-        result = await promotion_service.list_pending_approvals(
-            page=page,
-            limit=limit,
-            visibility_filter=visibility,
-            community_id_filter=community_id
-        )
-
-        return PendingApprovalListResponse(
-            items=[promotion_to_pending_item(p) for p in result["items"]],
-            pagination=PaginationResponse(**result["pagination"])
-        )
-
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "An error occurred"}}
-        )
-
-
 @router.post(
     "/promos/get",
     response_model=PromotionResponse,
@@ -76,8 +42,6 @@ async def list_pending_approvals(
 async def get_promotion(request_data: GetPromotionRequest):
     """Get promotion by ID (admin access)"""
     try:
-
-
         promotion = await promotion_service.get_promotion_by_id(request_data.promotion_id)
         return promotion_to_response(promotion)
 
@@ -86,139 +50,6 @@ async def get_promotion(request_data: GetPromotionRequest):
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"error": {"code": "PROMOTION_NOT_FOUND", "message": "Promotion not found"}}
         )
-
-    except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": "An error occurred"}}
-        )
-
-
-@router.post(
-    "/promos/approve",
-    response_model=PromotionResponse,
-    responses={
-        404: {"model": ErrorResponse},
-        409: {"model": ErrorResponse},
-        422: {"model": ErrorResponse}
-    }
-)
-async def approve_promotion(request_data: ApprovePromotionRequest, request: Request):
-    """Approve a promotion"""
-    try:
-        admin_id, admin_type = get_admin_id_from_request(request)
-
-        # Validate scope
-        if request_data.approval_scope not in ["global", "community"]:
-            raise ValueError("approval_scope must be 'global' or 'community'")
-
-        if request_data.approval_scope == "community" and not request_data.community_id:
-            raise ValueError("community_id is required for community approval scope")
-
-        promotion = await promotion_service.approve_promotion(
-            promotion_id=request_data.promotion_id,
-            reviewer_id=admin_id,
-            reviewer_type=admin_type,
-            scope=request_data.approval_scope,
-            version=request_data.version,
-            community_id=request_data.community_id,
-            notes=request_data.notes
-        )
-
-        return promotion_to_response(promotion)
-
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "PROMOTION_NOT_FOUND", "message": error_msg}}
-            )
-        elif "Version conflict" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "VERSION_CONFLICT", "message": error_msg}}
-            )
-        elif "already have an active promotion" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "PRODUCT_ACTIVE_PROMOTION_CONFLICT", "message": error_msg}}
-            )
-        elif "PENDING_APPROVAL" in error_msg or "Only promos" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "INVALID_STATUS_TRANSITION", "message": error_msg}}
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": {"code": "INVALID_REQUEST", "message": error_msg}}
-            )
-
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": {"code": "INTERNAL_ERROR", "message": str(e)}}
-        )
-
-
-@router.post(
-    "/promos/reject",
-    response_model=PromotionResponse,
-    responses={
-        404: {"model": ErrorResponse},
-        409: {"model": ErrorResponse},
-        422: {"model": ErrorResponse}
-    }
-)
-async def reject_promotion(request_data: RejectPromotionRequest, request: Request):
-    """Reject a promotion"""
-    try:
-        admin_id, admin_type = get_admin_id_from_request(request)
-
-        # Validate scope
-        if request_data.rejection_scope not in ["global", "community"]:
-            raise ValueError("rejection_scope must be 'global' or 'community'")
-
-        if request_data.rejection_scope == "community" and not request_data.community_id:
-            raise ValueError("community_id is required for community rejection scope")
-
-        promotion = await promotion_service.reject_promotion(
-            promotion_id=request_data.promotion_id,
-            reviewer_id=admin_id,
-            reviewer_type=admin_type,
-            scope=request_data.rejection_scope,
-            reason=request_data.reason,
-            version=request_data.version,
-            community_id=request_data.community_id
-        )
-
-        return promotion_to_response(promotion)
-
-    except ValueError as e:
-        error_msg = str(e)
-        if "not found" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail={"error": {"code": "PROMOTION_NOT_FOUND", "message": error_msg}}
-            )
-        elif "Version conflict" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "VERSION_CONFLICT", "message": error_msg}}
-            )
-        elif "PENDING_APPROVAL" in error_msg or "Only promos" in error_msg:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail={"error": {"code": "INVALID_STATUS_TRANSITION", "message": error_msg}}
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail={"error": {"code": "INVALID_REQUEST", "message": error_msg}}
-            )
 
     except Exception:
         raise HTTPException(

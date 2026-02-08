@@ -8,8 +8,7 @@ from beanie import PydanticObjectId
 from shared.models.promotion import (
     Promotion, PromotionStatus, PromotionType, VisibilityType,
     SupplierInfo, ProductSnapshot, PromotionProduct,
-    PromotionVisibility, PromotionSchedule, PromotionTerms,
-    ApprovalStatus
+    PromotionVisibility, PromotionSchedule, PromotionTerms
 )
 from shared.models.supplier import Supplier
 from shared.models.product import Product, ProductStatus
@@ -471,13 +470,13 @@ class PromotionService:
     # Lifecycle Operations
     # ========================================================================
 
-    async def submit_for_approval(
+    async def schedule_promotion(
         self,
         promotion_id: str,
         supplier_id: str,
         version: int
     ) -> Promotion:
-        """Submit promotion for approval"""
+        """Schedule a promotion"""
         try:
             promotion = await self.get_promotion(promotion_id, supplier_id)
 
@@ -502,12 +501,12 @@ class PromotionService:
             product_ids = [str(p.product_snapshot.product_id) for p in promotion.products]
             await self._check_product_active_promotion(product_ids, promotion_id)
 
-            await promotion.submit_for_approval()
+            await promotion.schedule_promotion()
 
-            # Emit promotion.submitted event
+            # Emit promotion.scheduled event
             self._kafka.emit(
                 topic=Topic.PROMOTION,
-                action="submitted",
+                action="scheduled",
                 entity_id=oid_to_str(promotion.id),
                 data={
                     "title": promotion.title,
@@ -522,112 +521,7 @@ class PromotionService:
         except ValueError as e:
             raise
         except Exception as e:
-            raise Exception(f"Failed to submit promotion: {str(e)}")
-
-    async def approve_promotion(
-        self,
-        promotion_id: str,
-        reviewer_id: str,
-        reviewer_type: str,
-        scope: str,
-        version: int,
-        community_id: Optional[str] = None,
-        notes: Optional[str] = None
-    ) -> Promotion:
-        """Approve promotion"""
-        try:
-            promotion = await self.get_promotion_by_id(promotion_id)
-
-            # Check version
-            if promotion.version != version:
-                raise ValueError(
-                    "Version conflict",
-                    {"expected_version": version, "current_version": promotion.version}
-                )
-
-            # Check products don't have active promotions (in case one was activated while pending)
-            product_ids = [str(p.product_snapshot.product_id) for p in promotion.products]
-            await self._check_product_active_promotion(product_ids, promotion_id)
-
-            await promotion.approve(
-                scope=scope,
-                reviewer_id=PydanticObjectId(reviewer_id),
-                reviewer_type=reviewer_type,
-                community_id=community_id,
-                notes=notes
-            )
-
-            # Emit promotion.approved event
-            self._kafka.emit(
-                topic=Topic.PROMOTION,
-                action="approved",
-                entity_id=oid_to_str(promotion.id),
-                data={
-                    "title": promotion.title,
-                    "supplier_id": oid_to_str(promotion.supplier.supplier_id),
-                    "reviewer_id": reviewer_id,
-                    "scope": scope,
-                    "status": promotion.status.value,
-                },
-            )
-
-            return promotion
-
-        except ValueError as e:
-            raise
-        except Exception as e:
-            raise Exception(f"Failed to approve promotion: {str(e)}")
-
-    async def reject_promotion(
-        self,
-        promotion_id: str,
-        reviewer_id: str,
-        reviewer_type: str,
-        scope: str,
-        reason: str,
-        version: int,
-        community_id: Optional[str] = None
-    ) -> Promotion:
-        """Reject promotion"""
-        try:
-            promotion = await self.get_promotion_by_id(promotion_id)
-
-            # Check version
-            if promotion.version != version:
-                raise ValueError(
-                    "Version conflict",
-                    {"expected_version": version, "current_version": promotion.version}
-                )
-
-            await promotion.reject(
-                scope=scope,
-                reviewer_id=PydanticObjectId(reviewer_id),
-                reviewer_type=reviewer_type,
-                reason=reason,
-                community_id=community_id
-            )
-
-            # Emit promotion.rejected event
-            self._kafka.emit(
-                topic=Topic.PROMOTION,
-                action="rejected",
-                entity_id=oid_to_str(promotion.id),
-                data={
-                    "title": promotion.title,
-                    "supplier_id": oid_to_str(promotion.supplier.supplier_id),
-                    "reviewer_id": reviewer_id,
-                    "scope": scope,
-                    "reason": reason,
-                    "status": promotion.status.value,
-                },
-            )
-
-            return promotion
-
-        except ValueError as e:
-            raise
-        except Exception as e:
-            raise Exception(f"Failed to reject promotion: {str(e)}")
+            raise Exception(f"Failed to schedule promotion: {str(e)}")
 
     async def pause_promotion(
         self,
@@ -793,47 +687,6 @@ class PromotionService:
             raise Exception(f"Failed to end promotion: {str(e)}")
 
     # ========================================================================
-    # Admin Operations
-    # ========================================================================
-
-    async def list_pending_approvals(
-        self,
-        page: int = 1,
-        limit: int = 20,
-        visibility_filter: Optional[str] = None,
-        community_id_filter: Optional[str] = None
-    ) -> Dict[str, Any]:
-        """List promotions pending approval"""
-        try:
-            query = {"status": PromotionStatus.PENDING_APPROVAL}
-
-            if visibility_filter:
-                query["visibility.type"] = visibility_filter
-
-            if community_id_filter:
-                query["visibility.community_ids"] = PydanticObjectId(community_id_filter)
-
-            limit = min(limit, self.max_page_size)
-            skip = (page - 1) * limit
-
-            total = await Promotion.find(query).count()
-            promotions = await Promotion.find(query).sort("created_at").skip(skip).limit(limit).to_list()
-
-            return {
-                "items": promotions,
-                "pagination": {
-                    "page": page,
-                    "limit": limit,
-                    "total": total,
-                    "total_pages": (total + limit - 1) // limit,
-                    "has_more": skip + len(promotions) < total
-                }
-            }
-
-        except Exception as e:
-            raise Exception(f"Failed to list pending approvals: {str(e)}")
-
-    # ========================================================================
     # Public Feed Operations
     # ========================================================================
 
@@ -851,8 +704,7 @@ class PromotionService:
                 "deleted_at": None,
                 "visibility.type": {"$in": [VisibilityType.GLOBAL.value, VisibilityType.BOTH.value]},
                 "schedule.start_date": {"$lte": now},
-                "schedule.end_date": {"$gte": now},
-                "approval.global_approval.status": ApprovalStatus.APPROVED.value
+                "schedule.end_date": {"$gte": now}
             }
 
             if cursor:
@@ -892,8 +744,7 @@ class PromotionService:
                 "visibility.type": {"$in": [VisibilityType.COMMUNITIES.value, VisibilityType.BOTH.value]},
                 "visibility.community_ids": PydanticObjectId(community_id),
                 "schedule.start_date": {"$lte": now},
-                "schedule.end_date": {"$gte": now},
-                f"approval.community_approvals.{community_id}.status": ApprovalStatus.APPROVED.value
+                "schedule.end_date": {"$gte": now}
             }
 
             if cursor:

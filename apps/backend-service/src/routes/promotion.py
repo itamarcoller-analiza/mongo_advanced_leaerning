@@ -252,15 +252,15 @@ async def delete_promotion(request_data: DeletePromotionRequest, request: Reques
 # ============================================================================
 
 @router.post(
-    "/submit",
+    "/schedule",
     response_model=PromotionResponse,
     responses={404: {"model": ErrorResponse}, 409: {"model": ErrorResponse}, 422: {"model": ErrorResponse}}
 )
-async def submit_for_approval(request_data: PromotionIdVersionRequest, request: Request):
-    """Submit promotion for approval"""
+async def schedule_promotion(request_data: PromotionIdVersionRequest, request: Request):
+    """Schedule a promotion"""
     try:
         supplier_id = get_supplier_id_from_request(request)
-        promotion = await promotion_service.submit_for_approval(
+        promotion = await promotion_service.schedule_promotion(
             promotion_id=request_data.promotion_id,
             supplier_id=supplier_id,
             version=request_data.version
