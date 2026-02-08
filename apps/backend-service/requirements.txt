@@ -1,0 +1,22 @@
+# MongoDB ODM
+beanie
+
+# Data validation and settings management
+pydantic
+pydantic[email]
+
+# Kafka
+confluent-kafka
+
+motor
+
+# Python utilities
+python-dateutil
+bcrypt
+httpx
+
+# Optional: For production deployments
+uvicorn
+fastapi
+
+pyjwt 
