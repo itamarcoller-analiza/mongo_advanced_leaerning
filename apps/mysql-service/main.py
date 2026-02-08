@@ -2,6 +2,7 @@
 
 import logging
 
+from src.db.connection import get_database
 from src.kafka.consumer import KafkaConsumer
 from src.consumers.auth_consumer import AuthConsumer
 from shared.kafka.topics import Topic
@@ -17,6 +18,12 @@ def main():
     """Start the MySQL analytics consumer."""
     logger.info("MySQL Analytics Service starting...")
 
+    # Initialize database
+    db = get_database()
+    db.connect()
+    db.init_tables()
+
+    # Create consumer
     consumer = KafkaConsumer(group_id="mysql-analytics-service")
 
     # Register auth consumer handlers
@@ -24,7 +31,7 @@ def main():
     for event_type, handler in auth_consumer.get_handlers().items():
         consumer.register_handler(event_type, handler)
 
-    # Subscribe only to user topic (auth events)
+    # Subscribe only to user topic
     consumer.subscribe([Topic.USER])
     consumer.start()
 
