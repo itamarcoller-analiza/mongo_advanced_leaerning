@@ -66,6 +66,25 @@ services:
       - ./apps/backend-service:/app
       - ./shared:/app/shared
 
+  # MySQL Analytics Service (Kafka Consumer)
+  mysql-service:
+    build:
+      context: ./apps/mysql-service
+      dockerfile: Dockerfile
+    container_name: social_commerce_mysql_service
+    restart: unless-stopped
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - KAFKA_CLIENT_ID=mysql-service
+      - KAFKA_GROUP_ID=mysql-analytics-service
+    depends_on:
+      - kafka
+    networks:
+      - social_commerce_network
+    volumes:
+      - ./apps/mysql-service:/app
+      - ./shared:/app/shared
+
 networks:
   social_commerce_network:
     driver: bridge
