@@ -66,6 +66,28 @@ services:
       - ./apps/backend-service:/app
       - ./shared:/app/shared
 
+  # MySQL database (Analytics)
+  mysql:
+    image: mysql:8.0
+    container_name: social_commerce_mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: analytics
+      MYSQL_USER: analytics
+      MYSQL_PASSWORD: analytics123
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - social_commerce_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # MySQL Analytics Service (Kafka Consumer)
   mysql-service:
     build:
@@ -77,8 +99,16 @@ services:
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
       - KAFKA_CLIENT_ID=mysql-service
       - KAFKA_GROUP_ID=mysql-analytics-service
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=analytics
+      - MYSQL_PASSWORD=analytics123
+      - MYSQL_DATABASE=analytics
     depends_on:
-      - kafka
+      mysql:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     networks:
       - social_commerce_network
     volumes:
@@ -93,4 +123,6 @@ volumes:
   mongodb_data:
     driver: local
   kafka_data:
+    driver: local
+  mysql_data:
     driver: local

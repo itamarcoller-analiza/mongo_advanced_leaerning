@@ -4,6 +4,7 @@ import logging
 
 from src.kafka.consumer import KafkaConsumer
 from src.consumers.auth_consumer import AuthConsumer
+from shared.kafka.topics import Topic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -23,8 +24,8 @@ def main():
     for event_type, handler in auth_consumer.get_handlers().items():
         consumer.register_handler(event_type, handler)
 
-    # Subscribe and start
-    consumer.subscribe()
+    # Subscribe only to user topic (auth events)
+    consumer.subscribe([Topic.USER])
     consumer.start()
 
 

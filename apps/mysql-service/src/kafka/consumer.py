@@ -75,8 +75,12 @@ class KafkaConsumer:
                 if msg.error():
                     if msg.error().code() == KafkaError._PARTITION_EOF:
                         continue
+                    elif msg.error().code() == KafkaError.UNKNOWN_TOPIC_OR_PART:
+                        logger.warning(f"Unknown topic or partition, waiting...")
+                        continue
                     else:
-                        raise KafkaException(msg.error())
+                        logger.error(f"Kafka error: {msg.error()}")
+                        continue
                 else:
                     self._process_message(msg)
 
